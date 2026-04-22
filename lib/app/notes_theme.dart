@@ -30,9 +30,10 @@ class NotesPalette {
 class NotesTheme {
   const NotesTheme._();
 
-  static ThemeData get light {
+  static ThemeData light({required Color accent}) {
+    final backgroundColor = _backgroundForAccent(accent);
     final colorScheme = ColorScheme.fromSeed(
-      seedColor: NotesPalette.accent,
+      seedColor: accent,
       brightness: Brightness.light,
       surface: NotesPalette.surface,
     );
@@ -40,7 +41,7 @@ class NotesTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: NotesPalette.canvas,
+      scaffoldBackgroundColor: backgroundColor,
       fontFamily: 'Inter',
       textTheme: const TextTheme(
         displaySmall: TextStyle(
@@ -86,15 +87,15 @@ class NotesTheme {
           height: 1.5,
         ),
       ),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: NotesPalette.canvas,
+      appBarTheme: AppBarTheme(
+        backgroundColor: backgroundColor,
         foregroundColor: NotesPalette.ink,
         centerTitle: false,
         elevation: 0,
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: NotesPalette.canvas,
+        fillColor: NotesPalette.surface,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: NotesPalette.border),
@@ -105,23 +106,23 @@ class NotesTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: NotesPalette.accent, width: 1.4),
+          borderSide: BorderSide(color: accent, width: 1.4),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md,
           vertical: AppSpacing.sm,
         ),
       ),
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: NotesPalette.accent,
-        foregroundColor: NotesPalette.ink,
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: accent,
+        foregroundColor: Colors.white,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.all(Radius.circular(8)),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: NotesPalette.accent,
+          backgroundColor: accent,
           foregroundColor: Colors.white,
           minimumSize: const Size.fromHeight(48),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -133,5 +134,9 @@ class NotesTheme {
         ),
       ),
     );
+  }
+
+  static Color _backgroundForAccent(Color accent) {
+    return Color.alphaBlend(accent.withValues(alpha: 0.16), Colors.white);
   }
 }

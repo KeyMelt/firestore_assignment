@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../app/notes_theme.dart';
 import '../helpers/collection_names.dart';
 import '../models/note.dart';
+import '../services/crash_reporting_service.dart';
 
 /// Screen for creating a new note or editing an existing one.
 ///
@@ -28,25 +29,20 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
 
   User? get _user => FirebaseAuth.instance.currentUser;
 
-  CollectionReference<Note> get _notesCollection =>
-      FirebaseFirestore.instance
-          .collection(CN.users)
-          .doc(_user?.uid)
-          .collection(CN.notes)
-          .withConverter<Note>(
-            fromFirestore: Note.fromFirestore,
-            toFirestore: (note, _) => note.toFirestore(),
-          );
+  CollectionReference<Note> get _notesCollection => FirebaseFirestore.instance
+      .collection(CN.users)
+      .doc(_user?.uid)
+      .collection(CN.notes)
+      .withConverter<Note>(
+        fromFirestore: Note.fromFirestore,
+        toFirestore: (note, _) => note.toFirestore(),
+      );
 
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(
-      text: widget.note?.title ?? '',
-    );
-    _bodyController = TextEditingController(
-      text: widget.note?.body ?? '',
-    );
+    _titleController = TextEditingController(text: widget.note?.title ?? '');
+    _bodyController = TextEditingController(text: widget.note?.body ?? '');
   }
 
   @override
@@ -75,7 +71,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
         final updatedNote = widget.note!.copyWith(
           title: title,
           body: body,
-          updatedAt: DateTime.now(), // Trigger server timestamp in toFirestore if needed, or use now
+          updatedAt:
+              DateTime.now(), // Trigger server timestamp in toFirestore if needed, or use now
         );
         await _notesCollection.doc(widget.note!.id).set(updatedNote);
       } else {
@@ -89,11 +86,16 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
       }
 
       if (mounted) Navigator.of(context).pop();
-    } catch (e) {
+    } catch (error, stackTrace) {
+      await CrashReportingService.instance.recordError(
+        error,
+        stackTrace,
+        reason: _isEditing ? 'update_note_failed' : 'create_note_failed',
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to save: $e'),
+            content: Text('Failed to save: $error'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -105,6 +107,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final backgroundColor = Theme.of(context).scaffoldBackgroundColor;
+
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -112,7 +116,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
             // ── App Bar ────────────────────────────────────────────────────
             Container(
               height: 72,
-              color: NotesPalette.canvas,
+              color: backgroundColor,
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
               child: Row(
                 children: [
@@ -130,7 +134,9 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 48), // Spacer to balance the back button
+                  const SizedBox(
+                    width: 48,
+                  ), // Spacer to balance the back button
                 ],
               ),
             ),

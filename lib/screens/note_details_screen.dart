@@ -6,10 +6,7 @@ import 'note_editor_screen.dart';
 
 /// Read-only view of a single note. The edit button navigates to [NoteEditorScreen].
 class NoteDetailsScreen extends StatelessWidget {
-  const NoteDetailsScreen({
-    super.key,
-    required this.note,
-  });
+  const NoteDetailsScreen({super.key, required this.note});
 
   final Note note;
 
@@ -17,6 +14,7 @@ class NoteDetailsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final title = note.title;
     final body = note.body;
+    final backgroundColor = Theme.of(context).scaffoldBackgroundColor;
 
     return Scaffold(
       body: SafeArea(
@@ -25,7 +23,7 @@ class NoteDetailsScreen extends StatelessWidget {
             // ── App Bar ────────────────────────────────────────────────────
             Container(
               height: 72,
-              color: NotesPalette.canvas,
+              color: backgroundColor,
               padding: const EdgeInsets.fromLTRB(
                 AppSpacing.md,
                 AppSpacing.md,
@@ -103,9 +101,7 @@ class NoteDetailsScreen extends StatelessWidget {
 
   void _openEditor(BuildContext context) {
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => NoteEditorScreen(note: note),
-      ),
+      MaterialPageRoute<void>(builder: (_) => NoteEditorScreen(note: note)),
     );
   }
 }

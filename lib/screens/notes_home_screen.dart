@@ -1,10 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 
 import '../app/notes_theme.dart';
 import '../helpers/collection_names.dart';
 import '../models/note.dart';
+import '../services/app_remote_config_service.dart';
+import '../services/crash_reporting_service.dart';
 import 'note_details_screen.dart';
 import 'note_editor_screen.dart';
 
@@ -13,26 +16,27 @@ class NotesHomeScreen extends StatelessWidget {
 
   User? get _user => FirebaseAuth.instance.currentUser;
 
-  CollectionReference<Note> get _notesCollection =>
-      FirebaseFirestore.instance
-          .collection(CN.users)
-          .doc(_user?.uid)
-          .collection(CN.notes)
-          .withConverter<Note>(
-            fromFirestore: Note.fromFirestore,
-            toFirestore: (note, _) => note.toFirestore(),
-          );
+  CollectionReference<Note> get _notesCollection => FirebaseFirestore.instance
+      .collection(CN.users)
+      .doc(_user?.uid)
+      .collection(CN.notes)
+      .withConverter<Note>(
+        fromFirestore: Note.fromFirestore,
+        toFirestore: (note, _) => note.toFirestore(),
+      );
 
   @override
   Widget build(BuildContext context) {
+    final backgroundColor = Theme.of(context).scaffoldBackgroundColor;
+
     return Scaffold(
       body: SafeArea(
         child: Column(
           children: [
-            // ── App Bar ──────────────────────────────────────────────────────
+            // ── App Bar
             Container(
               height: 72,
-              color: NotesPalette.canvas,
+              color: backgroundColor,
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
               child: Row(
                 children: [
@@ -61,17 +65,19 @@ class NotesHomeScreen extends StatelessWidget {
                           children: [
                             Text(
                               'Hello,',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: NotesPalette.muted,
-                                height: 1.1,
-                              ),
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: NotesPalette.muted,
+                                    height: 1.1,
+                                  ),
                             ),
                             Text(
                               _user?.displayName?.split(' ').first ?? 'Notes',
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                height: 1.1,
-                              ),
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    height: 1.1,
+                                  ),
                             ),
                           ],
                         ),
@@ -81,6 +87,18 @@ class NotesHomeScreen extends StatelessWidget {
                   // Actions
                   Row(
                     children: [
+                      IconButton(
+                        onPressed: () => _refreshTheme(context),
+                        icon: const Icon(Icons.palette_outlined, size: 22),
+                        color: Theme.of(context).colorScheme.primary,
+                        tooltip: 'Refresh remote theme',
+                      ),
+                      IconButton(
+                        onPressed: _triggerCrash,
+                        icon: const Icon(Icons.bug_report_outlined, size: 22),
+                        color: Theme.of(context).colorScheme.primary,
+                        tooltip: 'Test Crashlytics',
+                      ),
                       IconButton(
                         onPressed: () => _openEditor(context),
                         icon: const Icon(Icons.add_rounded, size: 28),
@@ -99,7 +117,7 @@ class NotesHomeScreen extends StatelessWidget {
               ),
             ),
 
-            // ── Notes list ───────────────────────────────────────────────────
+            // ── Notes list
             Expanded(
               child: StreamBuilder<QuerySnapshot<Note>>(
                 stream: _notesCollection
@@ -165,7 +183,17 @@ class NotesHomeScreen extends StatelessWidget {
                             color: Colors.white,
                           ),
                         ),
-                        onDismissed: (_) => _notesCollection.doc(doc.id).delete(),
+                        onDismissed: (_) async {
+                          try {
+                            await _notesCollection.doc(doc.id).delete();
+                          } catch (error, stackTrace) {
+                            await CrashReportingService.instance.recordError(
+                              error,
+                              stackTrace,
+                              reason: 'delete_note_failed',
+                            );
+                          }
+                        },
                         child: InkWell(
                           onTap: () => _openDetails(context, note),
                           child: Container(
@@ -174,7 +202,7 @@ class NotesHomeScreen extends StatelessWidget {
                               horizontal: AppSpacing.md,
                               vertical: AppSpacing.xs,
                             ),
-                            color: NotesPalette.canvas,
+                            color: backgroundColor,
                             child: Row(
                               children: [
                                 Expanded(
@@ -224,17 +252,13 @@ class NotesHomeScreen extends StatelessWidget {
 
   void _openEditor(BuildContext context, {Note? note}) {
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => NoteEditorScreen(note: note),
-      ),
+      MaterialPageRoute<void>(builder: (_) => NoteEditorScreen(note: note)),
     );
   }
 
   void _openDetails(BuildContext context, Note note) {
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => NoteDetailsScreen(note: note),
-      ),
+      MaterialPageRoute<void>(builder: (_) => NoteDetailsScreen(note: note)),
     );
   }
 
@@ -259,5 +283,36 @@ class NotesHomeScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _refreshTheme(BuildContext context) async {
+    try {
+      await AppRemoteConfigService.instance.refresh();
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Remote Config refreshed.')));
+    } catch (error, stackTrace) {
+      await CrashReportingService.instance.recordError(
+        error,
+        stackTrace,
+        reason: 'remote_config_refresh_failed',
+      );
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to refresh theme: $error'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    }
+  }
+
+  void _triggerCrash() {
+    FirebaseCrashlytics.instance.crash();
   }
 }

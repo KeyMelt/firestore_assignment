@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../app/notes_theme.dart';
+import '../services/crash_reporting_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -34,11 +35,16 @@ class _LoginScreenState extends State<LoginScreen> {
 
       await FirebaseAuth.instance.signInWithCredential(credential);
       // WrapperScreen will automatically navigate once auth state changes
-    } catch (e) {
+    } catch (error, stackTrace) {
+      await CrashReportingService.instance.recordError(
+        error,
+        stackTrace,
+        reason: 'google_sign_in_failed',
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Sign-in failed: $e'),
+            content: Text('Sign-in failed: $error'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -50,6 +56,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final primaryColor = Theme.of(context).colorScheme.primary;
+
     return Scaffold(
       body: SafeArea(
         child: ListView(
@@ -57,8 +65,8 @@ class _LoginScreenState extends State<LoginScreen> {
           children: [
             const SizedBox(height: 140),
             ShaderMask(
-              shaderCallback: (bounds) => const LinearGradient(
-                colors: [NotesPalette.ink, Color(0xFF6366F1)],
+              shaderCallback: (bounds) => LinearGradient(
+                colors: [NotesPalette.ink, primaryColor],
               ).createShader(bounds),
               child: Text(
                 'QuickNotes',
@@ -75,9 +83,7 @@ class _LoginScreenState extends State<LoginScreen> {
             Text(
               'Capture your thoughts instantly.',
               textAlign: TextAlign.center,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyLarge?.copyWith(
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 color: NotesPalette.muted,
                 letterSpacing: 0.2,
               ),
@@ -91,7 +97,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
+                      color: Colors.black.withValues(alpha: 0.04),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -102,7 +108,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     backgroundColor: Colors.white,
-                    side: const BorderSide(color: NotesPalette.border, width: 1),
+                    side: const BorderSide(
+                      color: NotesPalette.border,
+                      width: 1,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -111,9 +120,23 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Image.network(
-                        'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/1200px-Google_%22G%22_logo.svg.png',
+                      Container(
+                        width: 20,
                         height: 20,
+                        alignment: Alignment.center,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white,
+                        ),
+                        child: const Text(
+                          'G',
+                          style: TextStyle(
+                            color: Color(0xFF4285F4),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            height: 1,
+                          ),
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Text(
